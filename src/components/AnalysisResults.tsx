@@ -3,19 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import TrajectoryChart from "./TrajectoryChart";
-import ProcessedVideoPlayer from "./ProcessedVideoPlayer";
-import { Upload, Activity, Target, Zap, RotateCcw, Clock, Video } from "lucide-react";
+import { Upload, Activity, Target, Zap, RotateCcw, Clock } from "lucide-react";
 import type { AnalysisData } from "@/hooks/useVideoAnalysis";
 
 interface AnalysisResultsProps {
   analysisData: AnalysisData | null;
   isAnalyzing: boolean;
-  uploadProgress: number;
-  processingStage: string;
   onNewUpload: () => void;
 }
 
-const AnalysisResults = ({ analysisData, isAnalyzing, uploadProgress, processingStage, onNewUpload }: AnalysisResultsProps) => {
+const AnalysisResults = ({ analysisData, isAnalyzing, onNewUpload }: AnalysisResultsProps) => {
   if (isAnalyzing) {
     return (
       <Card className="max-w-4xl mx-auto border-0 shadow-xl">
@@ -23,25 +20,23 @@ const AnalysisResults = ({ analysisData, isAnalyzing, uploadProgress, processing
           <div className="text-center space-y-6">
             <div className="inline-flex items-center gap-2 mb-4">
               <Activity className="h-8 w-8 text-green-600 animate-pulse" />
-              <h2 className="text-2xl font-bold">Processing Video with Computer Vision...</h2>
+              <h2 className="text-2xl font-bold">Processing Video...</h2>
             </div>
             
             <div className="max-w-md mx-auto space-y-4">
-              <Progress value={uploadProgress} className="h-3" />
-              <p className="text-lg font-medium text-green-600">{processingStage}</p>
+              <Progress value={75} className="h-2" />
               <div className="space-y-2 text-sm text-gray-600">
                 <p>✓ Video uploaded successfully</p>
                 <p className="flex items-center gap-2">
                   <Activity className="h-4 w-4 animate-spin" />
-                  Computer vision analysis in progress...
+                  Computer vision processing in progress...
                 </p>
-                <p className="text-gray-500">🎾 Detecting tennis ball in each frame...</p>
-                <p className="text-gray-500">📈 Calculating trajectory and speed...</p>
-                <p className="text-gray-500">🎬 Generating video with tracking overlays...</p>
+                <p className="text-gray-400">⏳ Detecting ball trajectory...</p>
+                <p className="text-gray-400">⏳ Calculating speed metrics...</p>
               </div>
             </div>
             
-            <p className="text-gray-500">Advanced processing may take several minutes for high-quality analysis</p>
+            <p className="text-gray-500">This may take a few moments depending on video length</p>
           </div>
         </CardContent>
       </Card>
@@ -76,15 +71,6 @@ const AnalysisResults = ({ analysisData, isAnalyzing, uploadProgress, processing
           </div>
         </CardHeader>
       </Card>
-
-      {/* Processed Video Player */}
-      {analysisData.processed_video_url && (
-        <ProcessedVideoPlayer 
-          videoUrl={analysisData.processed_video_url}
-          videoName={analysisData.processed_video_name || 'processed_video.mp4'}
-          originalVideoName={`Original video (ID: ${analysisData.id.slice(0, 8)})`}
-        />
-      )}
 
       {/* Stats Cards */}
       <div className="grid md:grid-cols-4 gap-6">

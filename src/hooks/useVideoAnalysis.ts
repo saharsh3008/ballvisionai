@@ -133,8 +133,8 @@ export const useVideoAnalysis = () => {
             frames_analyzed: result.frames_analyzed || 0,
             ball_detection_confidence: result.ball_detection_confidence || 0,
             status: result.status,
-            processed_video_url: result.processed_video_url,
-            processed_video_name: result.processed_video_name
+            processed_video_url: (result as any).processed_video_url,
+            processed_video_name: (result as any).processed_video_name
           });
           setIsAnalyzing(false);
           setUploadProgress(100);

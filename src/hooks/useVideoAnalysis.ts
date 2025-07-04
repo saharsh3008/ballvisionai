@@ -97,9 +97,22 @@ export const useVideoAnalysis = () => {
         }
 
         if (result.status === 'completed') {
+          // Properly handle trajectory_data conversion from Json to our expected type
+          const trajectoryData = Array.isArray(result.trajectory_data) 
+            ? result.trajectory_data as Array<{ x: number; y: number; time: number }>
+            : [];
+
           setAnalysisData({
-            ...result,
-            trajectory_data: result.trajectory_data || []
+            id: result.id,
+            total_bounces: result.total_bounces || 0,
+            average_speed: result.average_speed || 0,
+            max_speed: result.max_speed || 0,
+            min_speed: result.min_speed || 0,
+            trajectory_data: trajectoryData,
+            processing_time_seconds: result.processing_time_seconds || 0,
+            frames_analyzed: result.frames_analyzed || 0,
+            ball_detection_confidence: result.ball_detection_confidence || 0,
+            status: result.status
           });
           setIsAnalyzing(false);
           toast({

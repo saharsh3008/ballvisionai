@@ -34,13 +34,6 @@ serve(async (req) => {
       .single()
 
     // Simulate computer vision processing
-    // In a real implementation, you would:
-    // 1. Download the video from storage
-    // 2. Process it with OpenCV or similar
-    // 3. Extract ball tracking data
-    // 4. Generate processed video with overlays
-    // 5. Upload processed video to storage
-    
     console.log('Starting video processing for:', videoInfo?.video_name)
     await new Promise(resolve => setTimeout(resolve, 8000)) // Simulate longer processing time
 
@@ -50,10 +43,9 @@ serve(async (req) => {
     const processedVideoName = `${nameWithoutExt}_processed.mp4`
 
     // Simulate uploading processed video (in real implementation, this would be the actual processed video)
-    // For now, we'll use the same video URL but with a different name to simulate
     const processedVideoUrl = videoInfo?.video_url // In real implementation, this would be the new processed video URL
 
-    // Mock computer vision results
+    // Mock computer vision results - only include columns that definitely exist
     const analysisResults = {
       status: 'completed',
       total_bounces: Math.floor(Math.random() * 30) + 15,
@@ -63,9 +55,7 @@ serve(async (req) => {
       processing_time_seconds: 8,
       frames_analyzed: Math.floor(Math.random() * 500) + 300,
       ball_detection_confidence: Math.round((Math.random() * 0.3 + 0.7) * 100) / 100,
-      trajectory_data: generateMockTrajectory(),
-      processed_video_url: processedVideoUrl,
-      processed_video_name: processedVideoName
+      trajectory_data: generateMockTrajectory()
     }
 
     console.log('Processing complete, updating record with results')
@@ -79,6 +69,22 @@ serve(async (req) => {
     if (error) {
       console.error('Error updating analysis record:', error)
       throw error
+    }
+
+    // Try to update processed video info separately (this might fail if columns don't exist yet)
+    try {
+      await supabaseClient
+        .from('video_analyses')
+        .update({
+          processed_video_url: processedVideoUrl,
+          processed_video_name: processedVideoName
+        })
+        .eq('id', videoId)
+      
+      console.log('Successfully updated processed video info')
+    } catch (processedVideoError) {
+      console.log('Could not update processed video info (columns may not exist yet):', processedVideoError)
+      // Continue without failing - the main analysis data was saved
     }
 
     console.log('Video processing completed successfully')

@@ -97,10 +97,28 @@ export const useVideoAnalysis = () => {
         }
 
         if (result.status === 'completed') {
-          // Properly handle trajectory_data conversion from Json to our expected type
-          const trajectoryData = Array.isArray(result.trajectory_data) 
-            ? result.trajectory_data as Array<{ x: number; y: number; time: number }>
-            : [];
+          // Safely handle trajectory_data conversion
+          let trajectoryData: Array<{ x: number; y: number; time: number }> = [];
+          
+          if (result.trajectory_data) {
+            try {
+              // Handle both direct array and JSON string cases
+              const rawData = typeof result.trajectory_data === 'string' 
+                ? JSON.parse(result.trajectory_data) 
+                : result.trajectory_data;
+              
+              if (Array.isArray(rawData)) {
+                trajectoryData = rawData.filter((point: any) => 
+                  point && 
+                  typeof point.x === 'number' && 
+                  typeof point.y === 'number' && 
+                  typeof point.time === 'number'
+                );
+              }
+            } catch (e) {
+              console.warn('Failed to parse trajectory data:', e);
+            }
+          }
 
           setAnalysisData({
             id: result.id,

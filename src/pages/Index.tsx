@@ -16,7 +16,7 @@ const Index = () => {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 mb-4">
             <Target className="h-8 w-8 text-green-600" />
-            <h1 className="text-4xl font-bold text-gray-900">Tennis Ball Tracker</h1>
+            <h1 className="text-4xl font-bold text-gray-900">Ball Vision</h1>
           </div>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Advanced AI-powered tennis ball tracking and analysis. Upload your tennis videos to get detailed insights on ball trajectory, speed, and bounce patterns.

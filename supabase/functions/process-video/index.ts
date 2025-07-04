@@ -26,13 +26,32 @@ serve(async (req) => {
       .update({ status: 'processing' })
       .eq('id', videoId)
 
+    // Get the original video info
+    const { data: videoInfo } = await supabaseClient
+      .from('video_analyses')
+      .select('video_name, video_url')
+      .eq('id', videoId)
+      .single()
+
     // Simulate computer vision processing
     // In a real implementation, you would:
     // 1. Download the video from storage
     // 2. Process it with OpenCV or similar
     // 3. Extract ball tracking data
+    // 4. Generate processed video with overlays
+    // 5. Upload processed video to storage
     
-    await new Promise(resolve => setTimeout(resolve, 5000)) // Simulate processing time
+    console.log('Starting video processing for:', videoInfo?.video_name)
+    await new Promise(resolve => setTimeout(resolve, 8000)) // Simulate longer processing time
+
+    // Generate processed video filename
+    const originalName = videoInfo?.video_name || 'video'
+    const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '')
+    const processedVideoName = `${nameWithoutExt}_processed.mp4`
+
+    // Simulate uploading processed video (in real implementation, this would be the actual processed video)
+    // For now, we'll use the same video URL but with a different name to simulate
+    const processedVideoUrl = videoInfo?.video_url // In real implementation, this would be the new processed video URL
 
     // Mock computer vision results
     const analysisResults = {
@@ -41,11 +60,15 @@ serve(async (req) => {
       average_speed: Math.round((Math.random() * 30 + 40) * 100) / 100,
       max_speed: Math.round((Math.random() * 20 + 70) * 100) / 100,
       min_speed: Math.round((Math.random() * 15 + 15) * 100) / 100,
-      processing_time_seconds: 5,
+      processing_time_seconds: 8,
       frames_analyzed: Math.floor(Math.random() * 500) + 300,
       ball_detection_confidence: Math.round((Math.random() * 0.3 + 0.7) * 100) / 100,
-      trajectory_data: generateMockTrajectory()
+      trajectory_data: generateMockTrajectory(),
+      processed_video_url: processedVideoUrl,
+      processed_video_name: processedVideoName
     }
+
+    console.log('Processing complete, updating record with results')
 
     // Update the record with analysis results
     const { error } = await supabaseClient
@@ -54,8 +77,11 @@ serve(async (req) => {
       .eq('id', videoId)
 
     if (error) {
+      console.error('Error updating analysis record:', error)
       throw error
     }
+
+    console.log('Video processing completed successfully')
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -64,6 +90,23 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error processing video:', error)
+    
+    // Update status to failed if possible
+    try {
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      
+      const { videoId } = await req.json()
+      await supabaseClient
+        .from('video_analyses')
+        .update({ status: 'failed' })
+        .eq('id', videoId)
+    } catch (updateError) {
+      console.error('Failed to update status to failed:', updateError)
+    }
+
     return new Response(
       JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }

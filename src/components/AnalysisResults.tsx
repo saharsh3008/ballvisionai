@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import TrajectoryChart from "./TrajectoryChart";
+import ProcessedVideoPlayer from "./ProcessedVideoPlayer";
 import { Upload, Activity, Target, Zap, RotateCcw, Clock } from "lucide-react";
 import type { AnalysisData } from "@/hooks/useVideoAnalysis";
 
@@ -20,23 +21,24 @@ const AnalysisResults = ({ analysisData, isAnalyzing, onNewUpload }: AnalysisRes
           <div className="text-center space-y-6">
             <div className="inline-flex items-center gap-2 mb-4">
               <Activity className="h-8 w-8 text-green-600 animate-pulse" />
-              <h2 className="text-2xl font-bold">Processing Video...</h2>
+              <h2 className="text-2xl font-bold">Processing Video with AI...</h2>
             </div>
             
             <div className="max-w-md mx-auto space-y-4">
-              <Progress value={75} className="h-2" />
+              <Progress value={85} className="h-2" />
               <div className="space-y-2 text-sm text-gray-600">
                 <p>✓ Video uploaded successfully</p>
+                <p>✓ Ball detection completed</p>
                 <p className="flex items-center gap-2">
                   <Activity className="h-4 w-4 animate-spin" />
-                  Computer vision processing in progress...
+                  Generating processed video with overlays...
                 </p>
-                <p className="text-gray-400">⏳ Detecting ball trajectory...</p>
-                <p className="text-gray-400">⏳ Calculating speed metrics...</p>
+                <p className="text-gray-400">⏳ Adding trajectory lines and speed annotations...</p>
+                <p className="text-gray-400">⏳ Creating downloadable output...</p>
               </div>
             </div>
             
-            <p className="text-gray-500">This may take a few moments depending on video length</p>
+            <p className="text-gray-500">Creating your enhanced video with visual tracking overlays</p>
           </div>
         </CardContent>
       </Card>
@@ -56,7 +58,7 @@ const AnalysisResults = ({ analysisData, isAnalyzing, onNewUpload }: AnalysisRes
             <div>
               <CardTitle className="text-2xl flex items-center gap-2">
                 <Target className="h-6 w-6 text-green-600" />
-                Computer Vision Analysis Complete
+                AI Video Analysis Complete
               </CardTitle>
               <p className="text-gray-600 mt-1">
                 Processing Time: {analysisData.processing_time_seconds}s | 
@@ -71,6 +73,15 @@ const AnalysisResults = ({ analysisData, isAnalyzing, onNewUpload }: AnalysisRes
           </div>
         </CardHeader>
       </Card>
+
+      {/* Processed Video Player */}
+      {analysisData.processed_video_url && analysisData.processed_video_name && (
+        <ProcessedVideoPlayer
+          videoUrl={analysisData.processed_video_url}
+          videoName={analysisData.processed_video_name}
+          originalVideoName="Original Video"
+        />
+      )}
 
       {/* Stats Cards */}
       <div className="grid md:grid-cols-4 gap-6">

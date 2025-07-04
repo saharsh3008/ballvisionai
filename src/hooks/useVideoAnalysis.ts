@@ -14,6 +14,8 @@ export interface AnalysisData {
   frames_analyzed: number;
   ball_detection_confidence: number;
   status: string;
+  processed_video_url?: string;
+  processed_video_name?: string;
 }
 
 export const useVideoAnalysis = () => {
@@ -47,7 +49,7 @@ export const useVideoAnalysis = () => {
         throw uploadError;
       }
 
-      setUploadProgress(50);
+      setUploadProgress(25);
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
@@ -70,7 +72,7 @@ export const useVideoAnalysis = () => {
         throw insertError;
       }
 
-      setUploadProgress(75);
+      setUploadProgress(50);
 
       // Trigger video processing
       const { error: processError } = await supabase.functions.invoke('process-video', {
@@ -81,7 +83,7 @@ export const useVideoAnalysis = () => {
         throw processError;
       }
 
-      setUploadProgress(100);
+      setUploadProgress(75);
 
       // Poll for completion
       const pollForResults = async () => {
@@ -130,12 +132,15 @@ export const useVideoAnalysis = () => {
             processing_time_seconds: result.processing_time_seconds || 0,
             frames_analyzed: result.frames_analyzed || 0,
             ball_detection_confidence: result.ball_detection_confidence || 0,
-            status: result.status
+            status: result.status,
+            processed_video_url: result.processed_video_url,
+            processed_video_name: result.processed_video_name
           });
           setIsAnalyzing(false);
+          setUploadProgress(100);
           toast({
             title: "Analysis complete!",
-            description: "Your video has been successfully analyzed.",
+            description: "Your video has been successfully analyzed with visual overlays.",
           });
         } else if (result.status === 'failed') {
           setIsAnalyzing(false);
@@ -146,11 +151,11 @@ export const useVideoAnalysis = () => {
           });
         } else {
           // Continue polling
-          setTimeout(pollForResults, 2000);
+          setTimeout(pollForResults, 3000);
         }
       };
 
-      setTimeout(pollForResults, 2000);
+      setTimeout(pollForResults, 3000);
 
     } catch (error) {
       console.error('Upload error:', error);

@@ -14,17 +14,21 @@ export interface AnalysisData {
   frames_analyzed: number;
   ball_detection_confidence: number;
   status: string;
+  processed_video_url?: string;
+  processed_video_name?: string;
 }
 
 export const useVideoAnalysis = () => {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [processingStage, setProcessingStage] = useState('');
 
   const uploadAndAnalyzeVideo = async (file: File) => {
     try {
       setIsAnalyzing(true);
       setUploadProgress(0);
+      setProcessingStage('Uploading video...');
 
       // Generate unique filename
       const timestamp = Date.now();
@@ -47,7 +51,8 @@ export const useVideoAnalysis = () => {
         throw uploadError;
       }
 
-      setUploadProgress(50);
+      setUploadProgress(30);
+      setProcessingStage('Initializing computer vision analysis...');
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
@@ -70,7 +75,8 @@ export const useVideoAnalysis = () => {
         throw insertError;
       }
 
-      setUploadProgress(75);
+      setUploadProgress(50);
+      setProcessingStage('Starting video processing...');
 
       // Trigger video processing
       const { error: processError } = await supabase.functions.invoke('process-video', {
@@ -81,9 +87,9 @@ export const useVideoAnalysis = () => {
         throw processError;
       }
 
-      setUploadProgress(100);
+      setUploadProgress(60);
 
-      // Poll for completion
+      // Poll for completion with detailed status updates
       const pollForResults = async () => {
         const { data: result, error } = await supabase
           .from('video_analyses')
@@ -96,7 +102,11 @@ export const useVideoAnalysis = () => {
           return;
         }
 
-        if (result.status === 'completed') {
+        if (result.status === 'processing') {
+          setUploadProgress(Math.min(85, uploadProgress + 5));
+          setProcessingStage('Processing video with computer vision...');
+          setTimeout(pollForResults, 2000);
+        } else if (result.status === 'completed') {
           // Properly handle trajectory_data conversion from Json to our expected type
           const trajectoryData = Array.isArray(result.trajectory_data) 
             ? result.trajectory_data as Array<{ x: number; y: number; time: number }>
@@ -112,15 +122,20 @@ export const useVideoAnalysis = () => {
             processing_time_seconds: result.processing_time_seconds || 0,
             frames_analyzed: result.frames_analyzed || 0,
             ball_detection_confidence: result.ball_detection_confidence || 0,
-            status: result.status
+            status: result.status,
+            processed_video_url: result.processed_video_url,
+            processed_video_name: result.processed_video_name
           });
           setIsAnalyzing(false);
+          setUploadProgress(100);
+          setProcessingStage('Complete!');
           toast({
             title: "Analysis complete!",
-            description: "Your video has been successfully analyzed.",
+            description: "Your video has been processed with tracking overlays.",
           });
         } else if (result.status === 'failed') {
           setIsAnalyzing(false);
+          setProcessingStage('');
           toast({
             title: "Analysis failed",
             description: "There was an error processing your video.",
@@ -137,6 +152,7 @@ export const useVideoAnalysis = () => {
     } catch (error) {
       console.error('Upload error:', error);
       setIsAnalyzing(false);
+      setProcessingStage('');
       toast({
         title: "Upload failed",
         description: error.message || "Failed to upload and process video.",
@@ -149,12 +165,14 @@ export const useVideoAnalysis = () => {
     setAnalysisData(null);
     setIsAnalyzing(false);
     setUploadProgress(0);
+    setProcessingStage('');
   };
 
   return {
     analysisData,
     isAnalyzing,
     uploadProgress,
+    processingStage,
     uploadAndAnalyzeVideo,
     resetAnalysis
   };

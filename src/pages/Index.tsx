@@ -1,37 +1,13 @@
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import VideoUpload from "@/components/VideoUpload";
 import AnalysisResults from "@/components/AnalysisResults";
+import { useVideoAnalysis } from "@/hooks/useVideoAnalysis";
 import { Upload, Activity, Target, TrendingUp } from "lucide-react";
 
 const Index = () => {
-  const [uploadedVideo, setUploadedVideo] = useState<File | null>(null);
-  const [analysisData, setAnalysisData] = useState<any>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-
-  const handleVideoUpload = (file: File) => {
-    setUploadedVideo(file);
-    // Simulate analysis process
-    setIsAnalyzing(true);
-    setTimeout(() => {
-      setIsAnalyzing(false);
-      // Mock analysis data
-      setAnalysisData({
-        totalBounces: 24,
-        averageSpeed: 45.2,
-        maxSpeed: 62.8,
-        trajectory: [
-          { x: 10, y: 20, time: 0 },
-          { x: 25, y: 15, time: 0.5 },
-          { x: 40, y: 30, time: 1.0 },
-          { x: 55, y: 10, time: 1.5 },
-          { x: 70, y: 25, time: 2.0 },
-        ],
-      });
-    }, 3000);
-  };
+  const { analysisData, isAnalyzing, uploadAndAnalyzeVideo, resetAnalysis } = useVideoAnalysis();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100">
@@ -60,8 +36,8 @@ const Index = () => {
           <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
             <CardContent className="p-6 text-center">
               <Activity className="h-12 w-12 text-green-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Real-time Tracking</h3>
-              <p className="text-gray-600">Advanced AI tracks ball movement frame by frame</p>
+              <h3 className="text-lg font-semibold mb-2">Real-time Processing</h3>
+              <p className="text-gray-600">Advanced computer vision tracks ball movement frame by frame</p>
             </CardContent>
           </Card>
           
@@ -75,18 +51,13 @@ const Index = () => {
         </div>
 
         {/* Main Content */}
-        {!uploadedVideo ? (
-          <VideoUpload onVideoUpload={handleVideoUpload} />
+        {!analysisData && !isAnalyzing ? (
+          <VideoUpload onVideoUpload={uploadAndAnalyzeVideo} />
         ) : (
           <AnalysisResults 
-            video={uploadedVideo}
             analysisData={analysisData}
             isAnalyzing={isAnalyzing}
-            onNewUpload={() => {
-              setUploadedVideo(null);
-              setAnalysisData(null);
-              setIsAnalyzing(false);
-            }}
+            onNewUpload={resetAnalysis}
           />
         )}
       </div>

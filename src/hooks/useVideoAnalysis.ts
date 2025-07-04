@@ -1,0 +1,148 @@
+
+import { useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
+
+export interface AnalysisData {
+  id: string;
+  total_bounces: number;
+  average_speed: number;
+  max_speed: number;
+  min_speed: number;
+  trajectory_data: Array<{ x: number; y: number; time: number }>;
+  processing_time_seconds: number;
+  frames_analyzed: number;
+  ball_detection_confidence: number;
+  status: string;
+}
+
+export const useVideoAnalysis = () => {
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const uploadAndAnalyzeVideo = async (file: File) => {
+    try {
+      setIsAnalyzing(true);
+      setUploadProgress(0);
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const filename = `${timestamp}-${file.name}`;
+
+      // Upload video to Supabase Storage
+      toast({
+        title: "Uploading video...",
+        description: "Please wait while we upload your video.",
+      });
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('tennis-videos')
+        .upload(filename, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      setUploadProgress(50);
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('tennis-videos')
+        .getPublicUrl(filename);
+
+      // Create video analysis record
+      const { data: analysisRecord, error: insertError } = await supabase
+        .from('video_analyses')
+        .insert({
+          video_name: file.name,
+          video_size: file.size,
+          video_url: publicUrl,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      setUploadProgress(75);
+
+      // Trigger video processing
+      const { error: processError } = await supabase.functions.invoke('process-video', {
+        body: { videoId: analysisRecord.id }
+      });
+
+      if (processError) {
+        throw processError;
+      }
+
+      setUploadProgress(100);
+
+      // Poll for completion
+      const pollForResults = async () => {
+        const { data: result, error } = await supabase
+          .from('video_analyses')
+          .select('*')
+          .eq('id', analysisRecord.id)
+          .single();
+
+        if (error) {
+          console.error('Error polling results:', error);
+          return;
+        }
+
+        if (result.status === 'completed') {
+          setAnalysisData({
+            ...result,
+            trajectory_data: result.trajectory_data || []
+          });
+          setIsAnalyzing(false);
+          toast({
+            title: "Analysis complete!",
+            description: "Your video has been successfully analyzed.",
+          });
+        } else if (result.status === 'failed') {
+          setIsAnalyzing(false);
+          toast({
+            title: "Analysis failed",
+            description: "There was an error processing your video.",
+            variant: "destructive",
+          });
+        } else {
+          // Continue polling
+          setTimeout(pollForResults, 2000);
+        }
+      };
+
+      setTimeout(pollForResults, 2000);
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      setIsAnalyzing(false);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload and process video.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const resetAnalysis = () => {
+    setAnalysisData(null);
+    setIsAnalyzing(false);
+    setUploadProgress(0);
+  };
+
+  return {
+    analysisData,
+    isAnalyzing,
+    uploadProgress,
+    uploadAndAnalyzeVideo,
+    resetAnalysis
+  };
+};

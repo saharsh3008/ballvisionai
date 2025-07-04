@@ -2,18 +2,17 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import TrajectoryChart from "./TrajectoryChart";
-import { Upload, Play, Activity, Target, Zap, RotateCcw } from "lucide-react";
+import { Upload, Activity, Target, Zap, RotateCcw, Clock } from "lucide-react";
+import type { AnalysisData } from "@/hooks/useVideoAnalysis";
 
 interface AnalysisResultsProps {
-  video: File;
-  analysisData: any;
+  analysisData: AnalysisData | null;
   isAnalyzing: boolean;
   onNewUpload: () => void;
 }
 
-const AnalysisResults = ({ video, analysisData, isAnalyzing, onNewUpload }: AnalysisResultsProps) => {
+const AnalysisResults = ({ analysisData, isAnalyzing, onNewUpload }: AnalysisResultsProps) => {
   if (isAnalyzing) {
     return (
       <Card className="max-w-4xl mx-auto border-0 shadow-xl">
@@ -21,19 +20,19 @@ const AnalysisResults = ({ video, analysisData, isAnalyzing, onNewUpload }: Anal
           <div className="text-center space-y-6">
             <div className="inline-flex items-center gap-2 mb-4">
               <Activity className="h-8 w-8 text-green-600 animate-pulse" />
-              <h2 className="text-2xl font-bold">Analyzing Video...</h2>
+              <h2 className="text-2xl font-bold">Processing Video...</h2>
             </div>
             
             <div className="max-w-md mx-auto space-y-4">
-              <Progress value={33} className="h-2" />
+              <Progress value={75} className="h-2" />
               <div className="space-y-2 text-sm text-gray-600">
                 <p>✓ Video uploaded successfully</p>
                 <p className="flex items-center gap-2">
                   <Activity className="h-4 w-4 animate-spin" />
-                  Detecting tennis ball in frames...
+                  Computer vision processing in progress...
                 </p>
-                <p className="text-gray-400">⏳ Calculating trajectory and speed...</p>
-                <p className="text-gray-400">⏳ Generating analysis report...</p>
+                <p className="text-gray-400">⏳ Detecting ball trajectory...</p>
+                <p className="text-gray-400">⏳ Calculating speed metrics...</p>
               </div>
             </div>
             
@@ -57,9 +56,13 @@ const AnalysisResults = ({ video, analysisData, isAnalyzing, onNewUpload }: Anal
             <div>
               <CardTitle className="text-2xl flex items-center gap-2">
                 <Target className="h-6 w-6 text-green-600" />
-                Analysis Complete
+                Computer Vision Analysis Complete
               </CardTitle>
-              <p className="text-gray-600 mt-1">Video: {video.name}</p>
+              <p className="text-gray-600 mt-1">
+                Processing Time: {analysisData.processing_time_seconds}s | 
+                Frames Analyzed: {analysisData.frames_analyzed} | 
+                Detection Confidence: {(analysisData.ball_detection_confidence * 100).toFixed(1)}%
+              </p>
             </div>
             <Button onClick={onNewUpload} variant="outline" className="flex items-center gap-2">
               <Upload className="h-4 w-4" />
@@ -70,7 +73,7 @@ const AnalysisResults = ({ video, analysisData, isAnalyzing, onNewUpload }: Anal
       </Card>
 
       {/* Stats Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-4 gap-6">
         <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center gap-3">
@@ -79,7 +82,7 @@ const AnalysisResults = ({ video, analysisData, isAnalyzing, onNewUpload }: Anal
               </div>
               <div>
                 <p className="text-sm text-gray-600">Total Bounces</p>
-                <p className="text-2xl font-bold text-gray-900">{analysisData.totalBounces}</p>
+                <p className="text-2xl font-bold text-gray-900">{analysisData.total_bounces}</p>
               </div>
             </div>
           </CardContent>
@@ -93,7 +96,7 @@ const AnalysisResults = ({ video, analysisData, isAnalyzing, onNewUpload }: Anal
               </div>
               <div>
                 <p className="text-sm text-gray-600">Average Speed</p>
-                <p className="text-2xl font-bold text-gray-900">{analysisData.averageSpeed} km/h</p>
+                <p className="text-2xl font-bold text-gray-900">{analysisData.average_speed} km/h</p>
               </div>
             </div>
           </CardContent>
@@ -107,54 +110,44 @@ const AnalysisResults = ({ video, analysisData, isAnalyzing, onNewUpload }: Anal
               </div>
               <div>
                 <p className="text-sm text-gray-600">Max Speed</p>
-                <p className="text-2xl font-bold text-gray-900">{analysisData.maxSpeed} km/h</p>
+                <p className="text-2xl font-bold text-gray-900">{analysisData.max_speed} km/h</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 shadow-lg hover:shadow-xl transition-shadow">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-purple-100 rounded-full">
+                <Clock className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Min Speed</p>
+                <p className="text-2xl font-bold text-gray-900">{analysisData.min_speed} km/h</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Video and Trajectory */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Video Player */}
-        <Card className="border-0 shadow-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Play className="h-5 w-5" />
-              Original Video
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
-              <video 
-                controls 
-                className="w-full h-full rounded-lg"
-                src={URL.createObjectURL(video)}
-              >
-                Your browser does not support video playback.
-              </video>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Trajectory Chart */}
-        <Card className="border-0 shadow-xl">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Ball Trajectory
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <TrajectoryChart data={analysisData.trajectory} />
-          </CardContent>
-        </Card>
-      </div>
+      {/* Trajectory Chart */}
+      <Card className="border-0 shadow-xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Ball Trajectory Analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <TrajectoryChart data={analysisData.trajectory_data || []} />
+        </CardContent>
+      </Card>
 
       {/* Detailed Analysis */}
       <Card className="border-0 shadow-xl">
         <CardHeader>
-          <CardTitle>Detailed Analysis</CardTitle>
+          <CardTitle>Computer Vision Results</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid md:grid-cols-2 gap-8">
@@ -163,41 +156,41 @@ const AnalysisResults = ({ video, analysisData, isAnalyzing, onNewUpload }: Anal
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Minimum Speed:</span>
-                  <span className="font-medium">12.5 km/h</span>
+                  <span className="font-medium">{analysisData.min_speed} km/h</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Average Speed:</span>
-                  <span className="font-medium">{analysisData.averageSpeed} km/h</span>
+                  <span className="font-medium">{analysisData.average_speed} km/h</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Maximum Speed:</span>
-                  <span className="font-medium">{analysisData.maxSpeed} km/h</span>
+                  <span className="font-medium">{analysisData.max_speed} km/h</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Speed Variance:</span>
-                  <span className="font-medium">±18.3 km/h</span>
+                  <span className="font-medium">±{(analysisData.max_speed - analysisData.min_speed).toFixed(1)} km/h</span>
                 </div>
               </div>
             </div>
 
             <div>
-              <h3 className="font-semibold mb-4">Bounce Analysis</h3>
+              <h3 className="font-semibold mb-4">Processing Metrics</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Bounces:</span>
-                  <span className="font-medium">{analysisData.totalBounces}</span>
+                  <span className="font-medium">{analysisData.total_bounces}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Average Height:</span>
-                  <span className="font-medium">1.2m</span>
+                  <span className="text-gray-600">Frames Analyzed:</span>
+                  <span className="font-medium">{analysisData.frames_analyzed}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Bounce Frequency:</span>
-                  <span className="font-medium">2.1 per second</span>
+                  <span className="text-gray-600">Detection Confidence:</span>
+                  <span className="font-medium">{(analysisData.ball_detection_confidence * 100).toFixed(1)}%</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Energy Loss:</span>
-                  <span className="font-medium">15% per bounce</span>
+                  <span className="text-gray-600">Processing Time:</span>
+                  <span className="font-medium">{analysisData.processing_time_seconds}s</span>
                 </div>
               </div>
             </div>

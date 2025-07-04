@@ -65,10 +65,6 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
   const handleUpload = () => {
     if (selectedFile) {
       onVideoUpload(selectedFile);
-      toast({
-        title: "Upload successful",
-        description: "Your video is being analyzed...",
-      });
     }
   };
 
@@ -141,7 +137,7 @@ const VideoUpload = ({ onVideoUpload }: VideoUploadProps) => {
                   onClick={handleUpload}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                 >
-                  Analyze Video
+                  Process Video
                 </Button>
                 <Button
                   variant="outline"

@@ -9,7 +9,60 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      video_analyses: {
+        Row: {
+          average_speed: number | null
+          ball_detection_confidence: number | null
+          created_at: string
+          frames_analyzed: number | null
+          id: string
+          max_speed: number | null
+          min_speed: number | null
+          processing_time_seconds: number | null
+          status: string
+          total_bounces: number | null
+          trajectory_data: Json | null
+          updated_at: string
+          video_name: string
+          video_size: number
+          video_url: string | null
+        }
+        Insert: {
+          average_speed?: number | null
+          ball_detection_confidence?: number | null
+          created_at?: string
+          frames_analyzed?: number | null
+          id?: string
+          max_speed?: number | null
+          min_speed?: number | null
+          processing_time_seconds?: number | null
+          status?: string
+          total_bounces?: number | null
+          trajectory_data?: Json | null
+          updated_at?: string
+          video_name: string
+          video_size: number
+          video_url?: string | null
+        }
+        Update: {
+          average_speed?: number | null
+          ball_detection_confidence?: number | null
+          created_at?: string
+          frames_analyzed?: number | null
+          id?: string
+          max_speed?: number | null
+          min_speed?: number | null
+          processing_time_seconds?: number | null
+          status?: string
+          total_bounces?: number | null
+          trajectory_data?: Json | null
+          updated_at?: string
+          video_name?: string
+          video_size?: number
+          video_url?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

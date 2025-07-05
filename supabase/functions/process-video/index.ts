@@ -38,9 +38,10 @@ serve(async (req) => {
     // Get Python API URL from environment variables
     const pythonApiUrl = Deno.env.get('PYTHON_API_URL') || 'http://localhost:8000'
     
+    console.log('Python API URL:', pythonApiUrl)
+    console.log('Calling Python API for computer vision analysis...')
+    
     try {
-      console.log('Calling Python API for computer vision analysis...')
-      
       // Call Python API for real computer vision analysis
       const pythonResponse = await fetch(`${pythonApiUrl}/analyze-video`, {
         method: 'POST',
@@ -51,16 +52,22 @@ serve(async (req) => {
           video_url: videoInfo?.video_url,
           video_name: videoInfo?.video_name,
           video_id: videoId
-        })
+        }),
+        // Add timeout to prevent hanging
+        signal: AbortSignal.timeout(300000) // 5 minutes timeout
       })
 
+      console.log('Python API response status:', pythonResponse.status)
+
       if (!pythonResponse.ok) {
-        throw new Error(`Python API error: ${pythonResponse.status} ${pythonResponse.statusText}`)
+        const errorText = await pythonResponse.text()
+        console.error('Python API error response:', errorText)
+        throw new Error(`Python API error: ${pythonResponse.status} ${pythonResponse.statusText} - ${errorText}`)
       }
 
       const analysisResults = await pythonResponse.json()
       
-      console.log('Received analysis results from Python API:', analysisResults)
+      console.log('Received analysis results from Python API:', JSON.stringify(analysisResults))
 
       // Ensure all required fields are present with fallbacks
       const finalResults = {
@@ -115,35 +122,16 @@ serve(async (req) => {
     } catch (pythonApiError) {
       console.error('Python API call failed:', pythonApiError)
       
-      // If Python API is not available, provide a helpful error message
-      if (pythonApiError instanceof TypeError && pythonApiError.message.includes('fetch')) {
-        console.log('Python API not reachable, using fallback mock data for development')
-        
-        // Fallback to mock data when Python API is not available (for development)
-        const mockResults = {
-          status: 'completed',
-          total_bounces: Math.floor(Math.random() * 30) + 15,
-          average_speed: Math.round((Math.random() * 30 + 40) * 100) / 100,
-          max_speed: Math.round((Math.random() * 20 + 70) * 100) / 100,
-          min_speed: Math.round((Math.random() * 15 + 15) * 100) / 100,
-          processing_time_seconds: 5,
-          frames_analyzed: Math.floor(Math.random() * 500) + 300,
-          ball_detection_confidence: Math.round((Math.random() * 0.3 + 0.7) * 100) / 100,
-          trajectory_data: generateMockTrajectory()
-        }
-
-        await supabaseClient
-          .from('video_analyses')
-          .update(mockResults)
-          .eq('id', videoId)
-
-        return new Response(
-          JSON.stringify({ success: true, results: mockResults, fallback: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
+      // Update status to failed with specific error message
+      await supabaseClient
+        .from('video_analyses')
+        .update({ 
+          status: 'failed', 
+          error_message: `Python API Error: ${pythonApiError.message}. Make sure the Python API is running at ${pythonApiUrl}` 
+        })
+        .eq('id', videoId)
       
-      throw pythonApiError
+      throw new Error(`Python API not available: ${pythonApiError.message}. Please ensure the Python service is running at ${pythonApiUrl}`)
     }
 
   } catch (error) {
@@ -171,13 +159,3 @@ serve(async (req) => {
     )
   }
 })
-
-function generateMockTrajectory() {
-  const trajectory = []
-  for (let i = 0; i <= 20; i++) {
-    const x = i * 4
-    const y = Math.sin(i * 0.3) * 10 + 15 + Math.random() * 5
-    trajectory.push({ x, y, time: i * 0.1 })
-  }
-  return trajectory
-}

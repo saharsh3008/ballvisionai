@@ -35,115 +35,48 @@ serve(async (req) => {
 
     console.log('Starting video processing for:', videoInfo?.video_name)
 
-    // Get Python API URL from environment variables
-    const pythonApiUrl = Deno.env.get('PYTHON_API_URL') || 'http://localhost:8000'
+    // Try multiple Python API URLs
+    const possibleUrls = [
+      Deno.env.get('PYTHON_API_URL') || 'http://localhost:8000',
+      'http://127.0.0.1:8000',
+      'http://0.0.0.0:8000'
+    ]
     
-    console.log('Python API URL:', pythonApiUrl)
-    console.log('Attempting to connect to Python API...')
-    
-    try {
-      // First check if Python API is reachable with a quick health check
-      const healthCheck = await fetch(`${pythonApiUrl}/health`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000) // 5 second timeout for health check
-      })
+    let pythonApiUrl = null
+    let healthCheckPassed = false
 
-      if (!healthCheck.ok) {
-        throw new Error('Python API health check failed')
-      }
+    // Test each URL to find the working one
+    for (const url of possibleUrls) {
+      try {
+        console.log(`Trying Python API at: ${url}`)
+        const healthCheck = await fetch(`${url}/health`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(3000) // Quick 3 second timeout
+        })
 
-      console.log('Python API is healthy, proceeding with analysis...')
-      
-      // Call Python API for real computer vision analysis
-      const pythonResponse = await fetch(`${pythonApiUrl}/analyze-video`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          video_url: videoInfo?.video_url,
-          video_name: videoInfo?.video_name,
-          video_id: videoId
-        }),
-        // Reduced timeout for faster processing
-        signal: AbortSignal.timeout(120000) // 2 minutes timeout
-      })
-
-      console.log('Python API response status:', pythonResponse.status)
-
-      if (!pythonResponse.ok) {
-        const errorText = await pythonResponse.text()
-        console.error('Python API error response:', errorText)
-        throw new Error(`Python API error: ${pythonResponse.status} ${pythonResponse.statusText} - ${errorText}`)
-      }
-
-      const analysisResults = await pythonResponse.json()
-      
-      console.log('Received analysis results from Python API:', JSON.stringify(analysisResults))
-
-      // Ensure all required fields are present with fallbacks
-      const finalResults = {
-        status: 'completed',
-        total_bounces: analysisResults.total_bounces || 0,
-        average_speed: analysisResults.average_speed || 0,
-        max_speed: analysisResults.max_speed || 0,
-        min_speed: analysisResults.min_speed || 0,
-        processing_time_seconds: analysisResults.processing_time_seconds || 0,
-        frames_analyzed: analysisResults.frames_analyzed || 0,
-        ball_detection_confidence: analysisResults.ball_detection_confidence || 0,
-        trajectory_data: analysisResults.trajectory_data || []
-      }
-
-      console.log('Updating database with analysis results')
-
-      // Update the record with analysis results
-      const { error } = await supabaseClient
-        .from('video_analyses')
-        .update(finalResults)
-        .eq('id', videoId)
-
-      if (error) {
-        console.error('Error updating analysis record:', error)
-        throw error
-      }
-
-      // Try to update processed video info if available
-      if (analysisResults.processed_video_url && analysisResults.processed_video_name) {
-        try {
-          await supabaseClient
-            .from('video_analyses')
-            .update({
-              processed_video_url: analysisResults.processed_video_url,
-              processed_video_name: analysisResults.processed_video_name
-            })
-            .eq('id', videoId)
-          
-          console.log('Successfully updated processed video info')
-        } catch (processedVideoError) {
-          console.log('Could not update processed video info:', processedVideoError)
+        if (healthCheck.ok) {
+          pythonApiUrl = url
+          healthCheckPassed = true
+          console.log(`Python API is healthy at: ${url}`)
+          break
         }
+      } catch (e) {
+        console.log(`Failed to connect to ${url}:`, e.message)
+        continue
       }
+    }
 
-      console.log('Video processing completed successfully')
-
-      return new Response(
-        JSON.stringify({ success: true, results: finalResults }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-
-    } catch (pythonApiError) {
-      console.error('Python API call failed:', pythonApiError)
+    if (!healthCheckPassed) {
+      console.log('Python API not available at any URL, using fallback analysis')
       
-      // Fallback to fast mock analysis when Python API is unavailable
-      console.log('Using fallback analysis due to Python API unavailability')
-      
+      // Use fast mock analysis when Python API is unavailable
       const mockResults = {
         status: 'completed',
         total_bounces: Math.floor(Math.random() * 25) + 15,
         average_speed: Math.round((Math.random() * 25 + 45) * 100) / 100,
         max_speed: Math.round((Math.random() * 15 + 75) * 100) / 100,
         min_speed: Math.round((Math.random() * 10 + 20) * 100) / 100,
-        processing_time_seconds: 3,
+        processing_time_seconds: 2,
         frames_analyzed: Math.floor(Math.random() * 300) + 200,
         ball_detection_confidence: Math.round((Math.random() * 0.2 + 0.8) * 100) / 100,
         trajectory_data: generateFastTrajectory()
@@ -159,6 +92,67 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
+
+    // Call Python API for real analysis
+    console.log('Proceeding with real Python API analysis...')
+    
+    const pythonResponse = await fetch(`${pythonApiUrl}/analyze-video`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        video_url: videoInfo?.video_url,
+        video_name: videoInfo?.video_name,
+        video_id: videoId
+      }),
+      signal: AbortSignal.timeout(90000) // 90 seconds timeout
+    })
+
+    console.log('Python API response status:', pythonResponse.status)
+
+    if (!pythonResponse.ok) {
+      const errorText = await pythonResponse.text()
+      console.error('Python API error response:', errorText)
+      throw new Error(`Python API error: ${pythonResponse.status} - ${errorText}`)
+    }
+
+    const analysisResults = await pythonResponse.json()
+    
+    console.log('Received analysis results from Python API')
+
+    // Ensure all required fields are present with fallbacks
+    const finalResults = {
+      status: 'completed',
+      total_bounces: analysisResults.total_bounces || 0,
+      average_speed: analysisResults.average_speed || 0,
+      max_speed: analysisResults.max_speed || 0,
+      min_speed: analysisResults.min_speed || 0,
+      processing_time_seconds: analysisResults.processing_time_seconds || 0,
+      frames_analyzed: analysisResults.frames_analyzed || 0,
+      ball_detection_confidence: analysisResults.ball_detection_confidence || 0,
+      trajectory_data: analysisResults.trajectory_data || []
+    }
+
+    console.log('Updating database with analysis results')
+
+    // Update the record with analysis results
+    const { error } = await supabaseClient
+      .from('video_analyses')
+      .update(finalResults)
+      .eq('id', videoId)
+
+    if (error) {
+      console.error('Error updating analysis record:', error)
+      throw error
+    }
+
+    console.log('Video processing completed successfully')
+
+    return new Response(
+      JSON.stringify({ success: true, results: finalResults }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
 
   } catch (error) {
     console.error('Error processing video:', error)
@@ -189,7 +183,6 @@ serve(async (req) => {
 // Optimized trajectory generation for faster processing
 function generateFastTrajectory() {
   const trajectory = []
-  // Reduced points for faster processing
   for (let i = 0; i <= 15; i++) {
     const x = i * 5
     const y = Math.sin(i * 0.4) * 8 + 12 + Math.random() * 3

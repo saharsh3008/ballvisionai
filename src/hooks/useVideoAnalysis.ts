@@ -16,6 +16,7 @@ export interface AnalysisData {
   status: string;
   processed_video_url?: string;
   processed_video_name?: string;
+  error_message?: string;
 }
 
 export const useVideoAnalysis = () => {
@@ -74,13 +75,27 @@ export const useVideoAnalysis = () => {
 
       setUploadProgress(50);
 
+      toast({
+        title: "Processing with AI...",
+        description: "Your video is being analyzed using computer vision models.",
+      });
+
       // Trigger video processing
-      const { error: processError } = await supabase.functions.invoke('process-video', {
+      const { data: processResult, error: processError } = await supabase.functions.invoke('process-video', {
         body: { videoId: analysisRecord.id }
       });
 
       if (processError) {
         throw processError;
+      }
+
+      // Check if fallback was used
+      if (processResult?.fallback) {
+        toast({
+          title: "Using demo mode",
+          description: "Python API not available - showing mock analysis results.",
+          variant: "default",
+        });
       }
 
       setUploadProgress(75);
@@ -134,19 +149,29 @@ export const useVideoAnalysis = () => {
             ball_detection_confidence: result.ball_detection_confidence || 0,
             status: result.status,
             processed_video_url: (result as any).processed_video_url,
-            processed_video_name: (result as any).processed_video_name
+            processed_video_name: (result as any).processed_video_name,
+            error_message: (result as any).error_message
           });
           setIsAnalyzing(false);
           setUploadProgress(100);
-          toast({
-            title: "Analysis complete!",
-            description: "Your video has been successfully analyzed with visual overlays.",
-          });
+          
+          if (processResult?.fallback) {
+            toast({
+              title: "Demo analysis complete!",
+              description: "Showing mock results. Set up Python API for real analysis.",
+            });
+          } else {
+            toast({
+              title: "Analysis complete!",
+              description: "Your video has been successfully analyzed with AI.",
+            });
+          }
         } else if (result.status === 'failed') {
           setIsAnalyzing(false);
+          const errorMsg = (result as any).error_message || "Unknown error occurred";
           toast({
             title: "Analysis failed",
-            description: "There was an error processing your video.",
+            description: `Error: ${errorMsg}`,
             variant: "destructive",
           });
         } else {
